@@ -7,8 +7,8 @@ import pickle
 import logging
 import binascii
 
-import angr
-import tracer
+import angr.angr as angr
+from tracer import tracer
 from . import config
 
 
@@ -54,6 +54,8 @@ class Driller(object):
 
         # Set of all the generated inputs.
         self._generated = set()
+
+        self._aslr_detector = None
 
         # Set the memory limit specified in the config.
         if config.MEM_LIMIT is not None:
@@ -110,6 +112,7 @@ class Driller(object):
         # initialize the tracer
         r = tracer.qemu_runner.QEMURunner(self.binary, self.input, argv=self.argv)
         p = angr.Project(self.binary)
+        self._aslr_detector = p.analyses.ASLRDetector(r.trace)
         for addr, proc in self._hooks.items():
             p.hook(addr, proc)
             l.debug("Hooking %#x -> %s...", addr, proc.display_name)
@@ -125,8 +128,8 @@ class Driller(object):
 
         simgr = p.factory.simulation_manager(s, save_unsat=True, hierarchy=False, save_unconstrained=r.crash_mode)
 
-        t = angr.exploration_techniques.Tracer(trace=r.trace, crash_addr=r.crash_addr, copy_states=True, follow_unsat=True)
-        self._core = angr.exploration_techniques.DrillerCore(trace=r.trace, fuzz_bitmap=self.fuzz_bitmap)
+        t = angr.exploration_techniques.Tracer(trace=r.trace, crash_addr=r.crash_addr, copy_states=True, follow_unsat=True, aslr_detector=self._aslr_detector)
+        self._core = angr.exploration_techniques.DrillerCore(trace=r.trace, fuzz_bitmap=self.fuzz_bitmap, aslr_detector=self._aslr_detector)
 
         simgr.use_technique(t)
         simgr.use_technique(angr.exploration_techniques.Oppologist())
