@@ -7,8 +7,8 @@ import pickle
 import logging
 import binascii
 
-import angr.angr as angr
-from tracer import tracer
+import angr
+import tracer
 from . import config
 
 
